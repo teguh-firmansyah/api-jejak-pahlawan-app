@@ -3,47 +3,80 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class EraController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
-    public function index()
+    public function index(Request $request): JsonResponse
     {
-        //
+        $eras = $request->user()->eras()
+            ->withCount('heroNotes')
+            ->orderBy('name')
+            ->get();
+
+        return response()->json(['data' => $eras]);
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(Request $request)
+    public function store(Request $request): JsonResponse
     {
-        //
+        $data = $request->validate($this->rules($request));
+
+        $era = $request->user()->eras()->create($data);
+
+        return response()->json([
+            'message' => 'Era berhasil ditambahkan.',
+            'data' => $era,
+        ], 201);
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(string $id)
+    public function show(Request $request, string $id): JsonResponse
     {
-        //
+        $era = $request->user()->eras()->withCount('heroNotes')->findOrFail($id);
+
+        return response()->json(['data' => $era]);
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, string $id)
+    public function update(Request $request, string $id): JsonResponse
     {
-        //
+        $era = $request->user()->eras()->findOrFail($id);
+
+        $era->update($request->validate($this->rules($request, $era->id)));
+
+        return response()->json([
+            'message' => 'Era berhasil diperbarui.',
+            'data' => $era,
+        ]);
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(string $id)
+    public function destroy(Request $request, string $id): JsonResponse
     {
-        //
+        $era = $request->user()->eras()->findOrFail($id);
+
+        if ($era->heroNotes()->exists()) {
+            return response()->json([
+                'message' => 'Era tidak bisa dihapus karena masih memiliki catatan pahlawan.',
+            ], 409);
+        }
+
+        $era->delete();
+
+        return response()->json(['message' => 'Era berhasil dihapus.']);
+    }
+
+    private function rules(Request $request, ?int $ignoreId = null): array
+    {
+        return [
+            'name' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('eras', 'name')
+                    ->where('user_id', $request->user()->id)
+                    ->ignore($ignoreId),
+            ],
+            'description' => ['nullable', 'string', 'max:1000'],
+        ];
     }
 }
