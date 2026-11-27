@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Era;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -19,6 +20,8 @@ class AuthController extends Controller
         ]);
 
         $user = User::create($data);
+
+        Era::createDefaultsFor($user);
 
         return response()->json([
             'message' => 'Registrasi berhasil.',
